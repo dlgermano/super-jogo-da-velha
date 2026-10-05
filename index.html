@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Super Jogo da Velha</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Super Velha">
+<meta name="theme-color" content="#2b2f36">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-512.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #fffdf8;
+    --ink: #1f2328;
+    --muted: #6b6f76;
+    --line: #ddd6c8;
+    --frame: #2b2f36;
+    --x: #d9480f;
+    --o: #1971c2;
+    --x-soft: rgba(217, 72, 15, .13);
+    --o-soft: rgba(25, 113, 194, .13);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171a;
+      --panel: #1f2226;
+      --ink: #eceae4;
+      --muted: #9aa0a6;
+      --line: #353a40;
+      --frame: #0b0c0e;
+      --x: #ff7a45;
+      --o: #4dabf7;
+      --x-soft: rgba(255, 122, 69, .17);
+      --o-soft: rgba(77, 171, 247, .17);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171a;
+    --panel: #1f2226;
+    --ink: #eceae4;
+    --muted: #9aa0a6;
+    --line: #353a40;
+    --frame: #0b0c0e;
+    --x: #ff7a45;
+    --o: #4dabf7;
+    --x-soft: rgba(255, 122, 69, .17);
+    --o-soft: rgba(77, 171, 247, .17);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    /* respeita o entalhe e a barra de status do iPhone quando aberto como app */
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  main { width: 100%; max-width: 560px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-size: clamp(22px, 6vw, 30px); margin: 4px 0 0; letter-spacing: -.02em; }
+  h1 .x { color: var(--x); }
+  h1 .o { color: var(--o); }
+  .hidden { display: none !important; }
+
+  /* Menu */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 18px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+  .seg button, .btn {
+    font: inherit; font-size: 15px; padding: 12px 10px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+    cursor: pointer; touch-action: manipulation;
+  }
+  .seg button.on { background: var(--ink); color: var(--panel); border-color: var(--ink); font-weight: 600; }
+  .btn.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); font-weight: 600; font-size: 16px; padding: 14px; }
+  details { font-size: 14px; color: var(--muted); line-height: 1.5; }
+  details summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+  details ol { padding-left: 20px; margin: 8px 0 0; }
+
+  /* Jogo */
+  .status { display: flex; align-items: center; gap: 10px; min-height: 28px; font-size: 18px; font-weight: 600; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+  .dot.x { background: var(--x); }
+  .dot.o { background: var(--o); }
+  .hint { font-size: 14px; color: var(--muted); margin-top: -8px; min-height: 18px; }
+  .board {
+    width: 100%; aspect-ratio: 1; display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: clamp(5px, 1.6vw, 9px); padding: clamp(5px, 1.6vw, 9px);
+    background: var(--frame); border-radius: 14px;
+  }
+  .small {
+    position: relative; display: grid; gap: 2px; min-width: 0; min-height: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr));
+    background: var(--line); border-radius: 8px; overflow: hidden;
+    outline: 3px solid transparent; outline-offset: -3px; transition: outline-color .15s;
+  }
+  .small.active.px { outline-color: var(--x); }
+  .small.active.po { outline-color: var(--o); }
+  .small.active.px .cell:empty { background: color-mix(in srgb, var(--panel), var(--x) 9%); }
+  .small.active.po .cell:empty { background: color-mix(in srgb, var(--panel), var(--o) 9%); }
+  .cell {
+    border: 0; padding: 0; margin: 0; background: var(--panel); color: var(--ink);
+    min-width: 0; min-height: 0; width: 100%; height: 100%; overflow: hidden;
+    font: 700 clamp(14px, 5.2vw, 28px)/1 system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    cursor: default; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .cell.can { cursor: pointer; }
+  .cell.can:hover { filter: brightness(.94); }
+  .cell.x { color: var(--x); }
+  .cell.o { color: var(--o); }
+  .cell.last { box-shadow: inset 0 0 0 2px currentColor; }
+  .small.won .cell, .small.draw .cell { opacity: .28; }
+  .small .mark {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    font: 800 clamp(56px, 24vw, 140px)/1 system-ui, sans-serif; pointer-events: none;
+  }
+  .small.won .mark { display: flex; }
+  .small.won.wx { background: var(--x-soft); }
+  .small.won.wo { background: var(--o-soft); }
+  .small.wx .mark { color: var(--x); }
+  .small.wo .mark { color: var(--o); }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .thinking::after { content: ""; display: inline-block; width: 1em; animation: dots 1.2s steps(4) infinite; text-align: left; }
+  @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Super Jogo da Velha <span class="x">X</span><span class="o">O</span></h1>
+
+  <section id="menu" class="card">
+    <div class="field">
+      <span class="label">Modo</span>
+      <div class="seg" data-key="mode">
+        <button data-v="pvc">Contra o computador</button>
+        <button data-v="pvp">2 jogadores</button>
+      </div>
+    </div>
+    <div class="field" id="f-diff">
+      <span class="label">Dificuldade</span>
+      <div class="seg" data-key="diff">
+        <button data-v="facil">Fácil</button>
+        <button data-v="medio">Médio</button>
+        <button data-v="dificil">Difícil</button>
+      </div>
+    </div>
+    <div class="field" id="f-first">
+      <span class="label">Quem começa (X)</span>
+      <div class="seg" data-key="first">
+        <button data-v="humano">Você</button>
+        <button data-v="cpu">Computador</button>
+      </div>
+    </div>
+    <button class="btn primary" id="start">Começar</button>
+    <details>
+      <summary>Regras</summary>
+      <ol>
+        <li>São 9 jogos da velha pequenos dentro de um grande.</li>
+        <li>A casa em que você joga define o tabuleiro pequeno em que o adversário joga em seguida.</li>
+        <li>Fazer 3 em linha num tabuleiro pequeno conquista esse tabuleiro.</li>
+        <li>Se o adversário for mandado para um tabuleiro já conquistado ou cheio, ele joga em qualquer tabuleiro livre.</li>
+        <li>Tabuleiro pequeno empatado não conta para ninguém.</li>
+        <li>Vence quem conquistar 3 tabuleiros pequenos em linha.</li>
+      </ol>
+    </details>
+  </section>
+
+  <section id="game" class="hidden" style="display:flex;flex-direction:column;gap:14px;min-width:0">
+    <div class="status"><span class="dot" id="dot"></span><span id="status"></span></div>
+    <div class="hint" id="hint"></div>
+    <div class="board" id="board"></div>
+    <div class="actions">
+      <button class="btn" id="restart">Nova partida</button>
+      <button class="btn" id="back">Menu</button>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---------- Motor do jogo (sem dependência de tela) ----------
+// Casas: índice 0..80 = tabuleiro * 9 + casa. Valores: 0 vazio, 1 = X, 2 = O.
+// Situação dos tabuleiros pequenos: 0 em aberto, 1 = X ganhou, 2 = O ganhou, 3 = empatado (cheio).
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function newState() {
+  return { c: new Int8Array(81), s: new Int8Array(9), next: -1, p: 1, w: 0, over: false, last: -1 };
+}
+function clone(st) {
+  return { c: st.c.slice(), s: st.s.slice(), next: st.next, p: st.p, w: st.w, over: st.over, last: st.last };
+}
+function wins(arr, off, p) {
+  for (const [a, b, c] of LINES) if (arr[off + a] === p && arr[off + b] === p && arr[off + c] === p) return true;
+  return false;
+}
+function boardFull(c, b) {
+  for (let i = 0; i < 9; i++) if (c[b * 9 + i] === 0) return false;
+  return true;
+}
+function moves(st) {
+  const r = [];
+  if (st.over) return r;
+  if (st.next >= 0 && st.s[st.next] === 0) {
+    for (let i = 0; i < 9; i++) if (st.c[st.next * 9 + i] === 0) r.push(st.next * 9 + i);
+  } else {
+    for (let b = 0; b < 9; b++) {
+      if (st.s[b] !== 0) continue;
+      for (let i = 0; i < 9; i++) if (st.c[b * 9 + i] === 0) r.push(b * 9 + i);
+    }
+  }
+  return r;
+}
+function play(st, m) {
+  const b = (m / 9) | 0, i = m % 9, p = st.p;
+  st.c[m] = p;
+  st.last = m;
+  if (wins(st.c, b * 9, p)) {
+    st.s[b] = p;
+    if (wins(st.s, 0, p)) { st.w = p; st.over = true; }
+  } else if (boardFull(st.c, b)) {
+    st.s[b] = 3;
+  }
+  st.next = st.s[i] === 0 ? i : -1;
+  st.p = 3 - p;
+  if (!st.over) {
+    let open = false;
+    for (let k = 0; k < 9; k++) if (st.s[k] === 0) { open = true; break; }
+    if (!open) { st.over = true; st.w = 0; }
+  }
+}
+// Alguma casa vazia do tabuleiro b dá a vitória nele para p?
+function canWinSmall(c, b, p) {
+  for (let i = 0; i < 9; i++) {
+    const m = b * 9 + i;
+    if (c[m] !== 0) continue;
+    c[m] = p;
+    const ok = wins(c, b * 9, p);
+    c[m] = 0;
+    if (ok) return true;
+  }
+  return false;
+}
+function winningMove(st) {
+  for (const m of moves(st)) {
+    const t = clone(st); play(t, m);
+    if (t.w === st.p) return m;
+  }
+  return -1;
+}
+
+// ---------- Computador ----------
+function aiEasy(st) {
+  const w = winningMove(st);
+  if (w >= 0) return w;
+  const ms = moves(st);
+  return ms[(Math.random() * ms.length) | 0];
+}
+
+const CELL_VALUE = [3, 2, 3, 2, 4, 2, 3, 2, 3];
+function aiMedium(st) {
+  const p = st.p, o = 3 - p;
+  let best = -1, bestScore = -Infinity;
+  for (const m of moves(st)) {
+    const b = (m / 9) | 0, i = m % 9;
+    const t = clone(st); play(t, m);
+    if (t.w === p) return m;
+    let s = CELL_VALUE[i] + Math.random() * 8;
+    if (t.s[b] === p) s += 100 + CELL_VALUE[b] * 6;
+    st.c[m] = o;
+    if (wins(st.c, b * 9, o)) s += 60;            // bloqueia o adversário
+    st.c[m] = 0;
+    if (t.next === -1) s -= 45;                   // dá jogada livre ao adversário
+    else if (canWinSmall(t.c, t.next, o)) s -= 70; // manda para onde ele ganha
+    if (winningMove(t) >= 0) s -= 5000;           // entrega a partida
+    if (s > bestScore) { bestScore = s; best = m; }
+  }
+  return best;
+}
+
+// Busca em árvore Monte Carlo (MCTS): simula partidas aleatórias e escolhe a jogada mais visitada.
+function aiHard(st, ms = 1200) {
+  const w = winningMove(st);
+  if (w >= 0) return w;
+  const end = performance.now() + ms;
+  const root = { parent: null, m: -1, ch: [], un: moves(st), w: 0, n: 0, pj: 3 - st.p };
+  let it = 0;
+  while (true) {
+    if ((it++ & 63) === 0 && performance.now() > end) break;
+    let node = root;
+    const s = clone(st);
+    while (node.un.length === 0 && node.ch.length) {
+      const logN = Math.log(node.n);
+      let bestC = null, bestV = -Infinity;
+      for (const c of node.ch) {
+        const v = c.w / c.n + 1.4 * Math.sqrt(logN / c.n);
+        if (v > bestV) { bestV = v; bestC = c; }
+      }
+      node = bestC;
+      play(s, node.m);
+    }
+    if (node.un.length) {
+      const k = (Math.random() * node.un.length) | 0;
+      const m = node.un[k];
+      node.un[k] = node.un[node.un.length - 1];
+      node.un.pop();
+      const pj = s.p;
+      play(s, m);
+      const c = { parent: node, m, ch: [], un: moves(s), w: 0, n: 0, pj };
+      node.ch.push(c);
+      node = c;
+    }
+    while (!s.over) {
+      const mv = moves(s);
+      play(s, mv[(Math.random() * mv.length) | 0]);
+    }
+    for (let n = node; n; n = n.parent) {
+      n.n++;
+      if (s.w === n.pj) n.w += 1;
+      else if (s.w === 0) n.w += 0.5;
+    }
+  }
+  let best = root.ch[0];
+  for (const c of root.ch) if (c.n > best.n) best = c;
+  return best.m;
+}
+
+function aiMove(st, diff) {
+  if (diff === 'facil') return aiEasy(st);
+  if (diff === 'medio') return aiMedium(st);
+  return aiHard(st);
+}
+
+// ---------- Tela ----------
+if (typeof document !== 'undefined') {
+  const $ = id => document.getElementById(id);
+  const cfg = { mode: 'pvc', diff: 'medio', first: 'humano' };
+  try { Object.assign(cfg, JSON.parse(localStorage.getItem('sjv-cfg') || '{}')); } catch (e) {}
+  let st = newState(), human = 1, busy = false, gameId = 0;
+
+  // Menu
+  function syncMenu() {
+    document.querySelectorAll('.seg').forEach(seg => {
+      seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === cfg[seg.dataset.key]));
+    });
+    $('f-diff').classList.toggle('hidden', cfg.mode !== 'pvc');
+    $('f-first').classList.toggle('hidden', cfg.mode !== 'pvc');
+  }
+  document.querySelectorAll('.seg').forEach(seg => {
+    seg.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      cfg[seg.dataset.key] = b.dataset.v;
+      try { localStorage.setItem('sjv-cfg', JSON.stringify(cfg)); } catch (e) {}
+      syncMenu();
+    });
+  });
+  syncMenu();
+
+  // Tabuleiro: montado uma vez, atualizado a cada jogada
+  const boardEl = $('board'), smalls = [], cells = [];
+  for (let b = 0; b < 9; b++) {
+    const sm = document.createElement('div');
+    sm.className = 'small';
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement('button');
+      c.className = 'cell';
+      c.dataset.m = b * 9 + i;
+      c.setAttribute('aria-label', `Tabuleiro ${b + 1}, casa ${i + 1}`);
+      sm.appendChild(c);
+      cells.push(c);
+    }
+    const mk = document.createElement('div');
+    mk.className = 'mark';
+    sm.appendChild(mk);
+    boardEl.appendChild(sm);
+    smalls.push(sm);
+  }
+
+  const sym = p => (p === 1 ? 'X' : 'O');
+  const humanTurn = () => cfg.mode === 'pvp' || st.p === human;
+
+  function render() {
+    const legal = new Set(st.over ? [] : moves(st));
+    const canClick = !busy && !st.over && humanTurn();
+    const activeBoards = new Set([...legal].map(m => (m / 9) | 0));
+    const pc = st.p === 1 ? 'px' : 'po';
+    for (let b = 0; b < 9; b++) {
+      const sm = smalls[b], s = st.s[b];
+      sm.className = 'small' +
+        (activeBoards.has(b) ? ' active ' + pc : '') +
+        (s === 1 ? ' won wx' : s === 2 ? ' won wo' : s === 3 ? ' draw' : '');
+      sm.lastChild.textContent = s === 1 ? 'X' : s === 2 ? 'O' : '';
+    }
+    for (let m = 0; m < 81; m++) {
+      const v = st.c[m], c = cells[m];
+      c.textContent = v ? sym(v) : '';
+      c.className = 'cell' + (v === 1 ? ' x' : v === 2 ? ' o' : '') +
+        (m === st.last ? ' last' : '') + (canClick && legal.has(m) ? ' can' : '');
+    }
+
+    const dot = $('dot'), status = $('status'), hint = $('hint');
+    status.classList.remove('thinking');
+    if (st.over) {
+      dot.className = 'dot' + (st.w === 1 ? ' x' : st.w === 2 ? ' o' : '');
+      if (st.w === 0) status.textContent = 'Empate.';
+      else if (cfg.mode === 'pvc') status.textContent = st.w === human ? 'Você venceu!' : 'O computador venceu.';
+      else status.textContent = `${sym(st.w)} venceu!`;
+      hint.textContent = '';
+      return;
+    }
+    dot.className = 'dot ' + (st.p === 1 ? 'x' : 'o');
+    if (cfg.mode === 'pvc') {
+      if (st.p === human) status.textContent = `Sua vez (${sym(human)})`;
+      else { status.textContent = 'Computador pensando'; status.classList.add('thinking'); }
+    } else {
+      status.textContent = `Vez do ${sym(st.p)}`;
+    }
+    hint.textContent = activeBoards.size === 1 ? 'Jogue no tabuleiro destacado.' : 'Jogue em qualquer tabuleiro destacado.';
+  }
+
+  function maybeAI() {
+    if (cfg.mode !== 'pvc' || st.over || st.p === human) return;
+    busy = true;
+    render();
+    const id = gameId;
+    // Pequena pausa para a tela atualizar antes do cálculo (e para o fácil/médio não responderem instantaneamente)
+    setTimeout(() => {
+      if (id !== gameId) return;
+      play(st, aiMove(st, cfg.diff));
+      busy = false;
+      render();
+    }, cfg.diff === 'dificil' ? 60 : 450);
+  }
+
+  boardEl.addEventListener('click', e => {
+    const c = e.target.closest('.cell');
+    if (!c || busy || st.over || !humanTurn()) return;
+    const m = +c.dataset.m;
+    if (!moves(st).includes(m)) return;
+    play(st, m);
+    render();
+    maybeAI();
+  });
+
+  function startGame() {
+    gameId++;
+    busy = false;
+    st = newState();
+    human = cfg.first === 'cpu' ? 2 : 1;
+    $('menu').classList.add('hidden');
+    $('game').classList.remove('hidden');
+    render();
+    maybeAI();
+  }
+  $('start').addEventListener('click', startGame);
+  $('restart').addEventListener('click', startGame);
+  $('back').addEventListener('click', () => {
+    gameId++;
+    busy = false;
+    $('game').classList.add('hidden');
+    $('menu').classList.remove('hidden');
+  });
+}
+</script>
+</body>
+</html>
