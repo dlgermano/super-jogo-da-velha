@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Jogo de perguntas e respostas no estilo Show do Milhão.">
+<title>Show do Milhão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Manrope:wght@400;600;800&display=swap">
+<style>
+body { margin: 0; }
+[hidden] { display: none !important; }
+/* Layout: estúdio de TV — palco central com a pergunta, escada de prêmios à direita (vira faixa no celular) */
+:root {
+  color-scheme: dark;
+  --stage: #070f33;
+  --stage-2: #0d1a52;
+  --panel: #13256e;
+  --panel-hi: #1c3596;
+  --line: #2c4ab8;
+  --gold: #f6c744;
+  --gold-deep: #c7921a;
+  --ink: #eef1ff;
+  --ink-dim: #a9b4e3;
+  --ok: #2fbf71;
+  --bad: #e5484d;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Manrope", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: radial-gradient(120% 80% at 50% 0%, var(--stage-2) 0%, var(--stage) 60%) fixed, var(--stage);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  padding-inline: 16px;
+  padding-block: 20px 40px;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+button:disabled { cursor: not-allowed; }
+
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 240px; align-items: start; }
+header.top { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.logo { font-family: var(--display); font-weight: 900; font-size: clamp(28px, 5vw, 44px); line-height: 1; letter-spacing: .02em; text-transform: uppercase; }
+.logo span { color: var(--gold); }
+.record { font-size: 13px; color: var(--ink-dim); letter-spacing: .06em; text-transform: uppercase; }
+.record b { color: var(--gold); font-variant-numeric: tabular-nums; }
+
+main { display: grid; gap: 16px; min-width: 0; }
+
+/* Valores da rodada */
+.stakes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stake { background: var(--stage-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; text-align: center; }
+.stake small { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-dim); }
+.stake strong { font-family: var(--display); font-size: clamp(20px, 3.4vw, 28px); font-variant-numeric: tabular-nums; }
+.stake.win strong { color: var(--gold); }
+.stake.lose strong { color: #ff9a9d; }
+
+/* Pergunta */
+.qbox { background: linear-gradient(180deg, var(--panel-hi), var(--panel)); border: 2px solid var(--gold-deep); border-radius: 18px; padding: 22px 22px 24px; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+.qmeta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); font-weight: 800; }
+.qtext { font-size: clamp(19px, 2.6vw, 24px); font-weight: 800; line-height: 1.35; margin: 12px 0 0; text-wrap: balance; }
+
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.opt {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  background: var(--stage-2); border: 2px solid var(--line); border-radius: 999px;
+  padding: 12px 18px 12px 12px; min-height: 58px; font-weight: 600; font-size: 16px;
+  transition: background .15s, border-color .15s, transform .1s;
+}
+.opt:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-1px); }
+.opt .l { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: var(--stage); font-family: var(--display); font-weight: 900; font-size: 20px; }
+.opt span:last-child { min-width: 0; }
+.opt.sel { background: var(--gold); color: var(--stage); border-color: var(--gold); }
+.opt.sel .l { background: var(--stage); color: var(--gold); }
+.opt.ok { background: var(--ok); border-color: var(--ok); color: #04210f; animation: pulse .5s 3; }
+.opt.ok .l { background: #04210f; color: var(--ok); }
+.opt.bad { background: var(--bad); border-color: var(--bad); color: #fff; }
+.opt.gone { opacity: .18; text-decoration: line-through; }
+@keyframes pulse { 50% { transform: scale(1.03); } }
+
+/* Barra de ações */
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; background: var(--stage-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.bar p { margin: 0; font-weight: 800; font-size: 17px; }
+.bar .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border-radius: 10px; padding: 10px 18px; font-weight: 800; border: 2px solid var(--line); background: var(--panel); }
+.btn.primary { background: var(--gold); color: var(--stage); border-color: var(--gold); }
+.btn.ghost { background: transparent; }
+.btn:hover:not(:disabled) { filter: brightness(1.12); }
+
+/* Ajudas */
+.help { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.aid { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px 6px; display: grid; gap: 2px; justify-items: center; }
+.aid b { font-family: var(--display); font-size: 20px; letter-spacing: .03em; text-transform: uppercase; }
+.aid small { font-size: 11px; color: var(--ink-dim); }
+.aid:hover:not(:disabled) { border-color: var(--gold); }
+.aid:disabled { opacity: .35; }
+
+.result { background: var(--stage-2); border: 1px dashed var(--gold-deep); border-radius: 14px; padding: 14px 16px; }
+.result h3 { margin: 0 0 10px; font-family: var(--display); font-size: 20px; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); }
+.result p { margin: 4px 0; }
+.cards { display: flex; gap: 10px; flex-wrap: wrap; }
+.card { width: 64px; height: 90px; border-radius: 8px; border: 2px solid var(--gold); background: repeating-linear-gradient(45deg, var(--panel) 0 6px, var(--panel-hi) 6px 12px); font-family: var(--display); font-size: 30px; font-weight: 900; }
+.card.face { background: var(--ink); color: var(--bad); }
+.votes { display: grid; gap: 6px; }
+.vote { display: grid; grid-template-columns: 22px 1fr 44px; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
+.vote .track { height: 14px; background: var(--stage); border-radius: 7px; overflow: hidden; }
+.vote .fill { height: 100%; background: var(--gold); border-radius: 7px; transition: width .8s ease-out; }
+
+/* Escada */
+aside { background: var(--stage-2); border: 1px solid var(--line); border-radius: 16px; padding: 12px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+aside h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-dim); text-align: center; }
+.ladder { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column-reverse; gap: 3px; }
+.ladder li { display: flex; justify-content: space-between; padding: 4px 10px; border-radius: 6px; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--ink-dim); }
+.ladder li .n { opacity: .7; }
+.ladder li.done { color: var(--ink); }
+.ladder li.cur { background: var(--gold); color: var(--stage); font-weight: 800; }
+.ladder li.mark { border-top: 1px solid var(--line); }
+.ladder li.top { font-family: var(--display); font-size: 18px; color: var(--gold); }
+.ladder li.top.cur { color: var(--stage); }
+
+/* Fim de jogo */
+.end { text-align: center; padding: 34px 20px; }
+.end .big { font-family: var(--display); font-weight: 900; font-size: clamp(44px, 9vw, 84px); color: var(--gold); line-height: 1; font-variant-numeric: tabular-nums; }
+.end p { color: var(--ink-dim); max-width: 46ch; margin: 12px auto 20px; }
+
+@media (max-width: 760px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  aside { position: static; order: -1; padding: 10px; }
+  .ladder { flex-direction: row; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+  .ladder li { flex: none; flex-direction: column; align-items: center; padding: 4px 8px; font-size: 12px; }
+  .ladder li.mark { border-top: 0; border-left: 1px solid var(--line); }
+  .opts { grid-template-columns: 1fr; }
+  .help { grid-template-columns: repeat(2, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">Show do <span>Milhão</span></div>
+    <div class="record">Seu recorde: <b id="record">R$ 0</b></div>
+  </header>
+  <main id="main"></main>
+  <aside>
+    <h2>Escada de prêmios</h2>
+    <ol class="ladder" id="ladder"></ol>
+  </aside>
+</div>
+
+<script>
+const PRIZES = [1000,2000,3000,4000,5000,10000,20000,30000,40000,50000,100000,200000,300000,400000,500000,1000000];
+const LEVEL_NAME = {1: "Nível fácil", 2: "Nível médio", 3: "Nível difícil", 4: "Pergunta do milhão"};
+
+const BANK = {
+  1: [
+    ["Qual é o maior planeta do Sistema Solar?", ["Júpiter","Saturno","Netuno","Terra"]],
+    ["Qual é a capital do Brasil?", ["Brasília","Rio de Janeiro","São Paulo","Salvador"]],
+    ["Quantos dias tem um ano bissexto?", ["366","365","364","367"]],
+    ["Que cor surge ao misturar azul com amarelo?", ["Verde","Roxo","Laranja","Marrom"]],
+    ["Qual animal é conhecido como o “rei da selva”?", ["Leão","Tigre","Elefante","Gorila"]],
+    ["Quantos lados tem um hexágono?", ["6","5","7","8"]],
+    ["Em que continente fica o Egito?", ["África","Ásia","Europa","Oceania"]],
+    ["Qual instrumento musical tem teclas brancas e pretas?", ["Piano","Violino","Flauta","Bateria"]],
+    ["Quantos jogadores de cada time ficam em campo numa partida de futebol?", ["11","10","12","9"]],
+    ["Qual é o plural de “pão”?", ["Pães","Pãos","Pões","Pãe"]],
+    ["Qual órgão bombeia o sangue pelo corpo?", ["Coração","Pulmão","Fígado","Rim"]],
+    ["Qual mês tem 28 ou 29 dias?", ["Fevereiro","Abril","Junho","Novembro"]],
+    ["Quantas horas tem um dia?", ["24","12","20","48"]],
+    ["Qual é o maior oceano do mundo?", ["Pacífico","Atlântico","Índico","Ártico"]],
+    ["Qual inseto produz o mel?", ["Abelha","Formiga","Vespa","Borboleta"]],
+    ["Quantos minutos tem uma hora?", ["60","100","30","90"]],
+    ["Qual é o satélite natural da Terra?", ["Lua","Sol","Marte","Vênus"]],
+    ["Em que estação do ano muitas árvores perdem as folhas?", ["Outono","Verão","Primavera","Inverno"]],
+    ["Quanto é 7 × 8?", ["56","54","48","64"]],
+    ["Qual é a moeda oficial do Brasil?", ["Real","Cruzeiro","Peso","Dólar"]],
+    ["Quantas patas tem uma aranha?", ["8","6","10","4"]],
+    ["Em que estado físico está a água no gelo?", ["Sólido","Líquido","Gasoso","Plasma"]],
+    ["Qual fruta é a base do guacamole?", ["Abacate","Manga","Limão","Goiaba"]],
+    ["Qual cidade é conhecida como “Cidade Maravilhosa”?", ["Rio de Janeiro","Salvador","Recife","Florianópolis"]],
+    ["Quantas cores tem o arco-íris, na divisão tradicional?", ["7","5","6","8"]],
+    ["Qual é o maior animal do planeta?", ["Baleia-azul","Elefante-africano","Girafa","Orca"]],
+    ["Quem criou o “Sítio do Picapau Amarelo”?", ["Monteiro Lobato","Ziraldo","Ruth Rocha","Mauricio de Sousa"]],
+    ["Qual personagem da Turma da Mônica tem um coelho de pelúcia chamado Sansão?", ["Mônica","Magali","Cascão","Cebolinha"]],
+    ["Em qual ponto cardeal o Sol nasce?", ["Leste","Oeste","Norte","Sul"]],
+    ["Quantos zeros tem o número um milhão?", ["6","5","7","9"]],
+    ["Qual é o idioma oficial de Portugal?", ["Português","Espanhol","Galego","Francês"]],
+    ["Qual ave é o símbolo da paz?", ["Pomba","Águia","Coruja","Cisne"]],
+    ["Qual é a capital da França?", ["Paris","Lyon","Marselha","Nice"]],
+    ["Como se chama a passagem da água líquida para vapor?", ["Evaporação","Condensação","Solidificação","Fusão"]],
+    ["Quantos segundos tem um minuto?", ["60","100","30","120"]],
+    ["Qual instrumento mede a temperatura?", ["Termômetro","Barômetro","Balança","Bússola"]],
+    ["Em qual esporte a bola precisa passar por uma cesta?", ["Basquete","Vôlei","Handebol","Tênis"]],
+    ["Em que país ficam as pirâmides de Gizé?", ["Egito","México","Peru","Sudão"]],
+    ["Qual cantor brasileiro é conhecido como “o Rei”?", ["Roberto Carlos","Erasmo Carlos","Tim Maia","Caetano Veloso"]],
+    ["Quantos meses tem um ano?", ["12","10","11","13"]],
+    ["Qual é o maior país da América do Sul?", ["Brasil","Argentina","Peru","Colômbia"]],
+    ["Como se chama o filhote da vaca?", ["Bezerro","Potro","Cabrito","Leitão"]],
+    ["Qual é o feminino de “cavalo”?", ["Égua","Cavala","Potra","Mula"]],
+    ["Qual festa brasileira é famosa pelos desfiles de escolas de samba?", ["Carnaval","Festa Junina","Réveillon","Círio de Nazaré"]],
+    ["Quanto é 100 dividido por 4?", ["25","20","40","24"]],
+    ["Quantos anos tem uma década?", ["10","100","5","12"]],
+    ["Quantos anos tem um século?", ["100","10","50","1.000"]],
+    ["Qual planeta fica mais perto do Sol?", ["Mercúrio","Vênus","Marte","Terra"]],
+    ["Que parte da planta costuma ficar embaixo da terra?", ["Raiz","Folha","Flor","Caule"]],
+    ["Qual comida típica de festa junina é feita de milho?", ["Pamonha","Brigadeiro","Feijoada","Acarajé"]],
+    ["Qual é o bolinho baiano de feijão frito no azeite de dendê?", ["Acarajé","Coxinha","Pastel","Tapioca"]],
+    ["Qual destas palavras é um verbo?", ["Correr","Mesa","Bonito","Rapidamente"]],
+    ["Quantos lados tem um triângulo?", ["3","4","5","6"]],
+    ["Qual é o animal terrestre mais rápido?", ["Guepardo","Leão","Cavalo","Antílope"]],
+    ["Qual é a capital do Rio Grande do Sul?", ["Porto Alegre","Florianópolis","Curitiba","Pelotas"]],
+    ["Qual é a capital da Bahia?", ["Salvador","Feira de Santana","Recife","Ilhéus"]],
+    ["Qual órgão é o principal responsável pela respiração?", ["Pulmão","Coração","Estômago","Fígado"]],
+    ["Que inseto emite luz à noite?", ["Vaga-lume","Grilo","Mosquito","Cigarra"]],
+    ["Qual é a forma geométrica de uma bola de futebol?", ["Esfera","Cubo","Cilindro","Cone"]],
+    ["Qual time de futebol tem o apelido de “Timão”?", ["Corinthians","Palmeiras","Flamengo","Grêmio"]],
+    ["Quanto é 9 ao quadrado?", ["81","18","72","99"]],
+    ["Qual é a principal língua falada nos Estados Unidos?", ["Inglês","Espanhol","Francês","Alemão"]],
+  ],
+  2: [
+    ["Quem pintou a Mona Lisa?", ["Leonardo da Vinci","Michelangelo","Rafael","Van Gogh"]],
+    ["Qual é o símbolo químico do ouro?", ["Au","Ag","Go","Or"]],
+    ["Em que ano a frota de Pedro Álvares Cabral chegou ao Brasil?", ["1500","1492","1530","1550"]],
+    ["Quem escreveu “Dom Casmurro”?", ["Machado de Assis","José de Alencar","Jorge Amado","Graciliano Ramos"]],
+    ["Qual é a capital da Austrália?", ["Camberra","Sydney","Melbourne","Perth"]],
+    ["Quantos estados o Brasil tem, sem contar o Distrito Federal?", ["26","27","25","24"]],
+    ["Qual planeta é conhecido como o planeta vermelho?", ["Marte","Vênus","Mercúrio","Júpiter"]],
+    ["Que gás as plantas absorvem do ar na fotossíntese?", ["Gás carbônico","Oxigênio","Nitrogênio","Hélio"]],
+    ["Quantas Copas do Mundo masculinas o Brasil já venceu?", ["5","4","6","3"]],
+    ["Qual é o menor osso do corpo humano?", ["Estribo","Fêmur","Rádio","Falange"]],
+    ["Quem foi o primeiro presidente do Brasil?", ["Deodoro da Fonseca","Floriano Peixoto","Getúlio Vargas","Prudente de Morais"]],
+    ["Qual elemento químico tem número atômico 1?", ["Hidrogênio","Hélio","Oxigênio","Carbono"]],
+    ["Quantas estrelas tem a bandeira do Brasil?", ["27","26","22","25"]],
+    ["Qual é o maior felino do mundo?", ["Tigre","Leão","Onça-pintada","Leopardo"]],
+    ["Qual vitamina o corpo produz com a ajuda da luz do sol?", ["Vitamina D","Vitamina C","Vitamina A","Vitamina B12"]],
+    ["Qual é a capital da Argentina?", ["Buenos Aires","Montevidéu","Santiago","Córdoba"]],
+    ["Quem escreveu “Os Lusíadas”?", ["Luís de Camões","Fernando Pessoa","Eça de Queirós","Gil Vicente"]],
+    ["Qual é o maior órgão do corpo humano?", ["Pele","Fígado","Intestino","Pulmão"]],
+    ["Em que país nasceu Pablo Picasso?", ["Espanha","França","Itália","Portugal"]],
+    ["Qual é o símbolo químico da prata?", ["Ag","Au","Pa","Si"]],
+    ["Qual rio atravessa Londres?", ["Tâmisa","Sena","Reno","Danúbio"]],
+    ["Quantos graus tem um ângulo reto?", ["90","180","45","360"]],
+    ["Qual é a fórmula química da água?", ["H₂O","CO₂","O₂","H₂O₂"]],
+    ["Quem proclamou a independência do Brasil?", ["Dom Pedro I","Dom Pedro II","Dom João VI","Dom Miguel"]],
+    ["Em que ano o Brasil se tornou independente de Portugal?", ["1822","1808","1889","1888"]],
+    ["Qual é o maior estado brasileiro em área?", ["Amazonas","Pará","Mato Grosso","Minas Gerais"]],
+    ["Qual é o menor estado brasileiro em área?", ["Sergipe","Alagoas","Espírito Santo","Rio de Janeiro"]],
+    ["Qual é a montanha mais alta do mundo?", ["Everest","K2","Aconcágua","Kilimanjaro"]],
+    ["Qual é o país mais populoso do mundo hoje?", ["Índia","China","Estados Unidos","Indonésia"]],
+    ["Quem pintou “A Noite Estrelada”?", ["Van Gogh","Monet","Picasso","Dalí"]],
+    ["Quem formulou as leis do movimento e a lei da gravitação universal?", ["Isaac Newton","Galileu Galilei","Albert Einstein","Johannes Kepler"]],
+    ["Qual é a raiz quadrada de 144?", ["12","14","11","16"]],
+    ["Como se chama a galáxia onde fica o Sistema Solar?", ["Via Láctea","Andrômeda","Triângulo","Sombreiro"]],
+    ["Que apresentadora ficou conhecida como “Rainha dos Baixinhos”?", ["Xuxa","Angélica","Eliana","Mara Maravilha"]],
+    ["Quem compôs “Garota de Ipanema” com Vinicius de Moraes?", ["Tom Jobim","Chico Buarque","João Gilberto","Caetano Veloso"]],
+    ["Qual é a capital do Japão?", ["Tóquio","Quioto","Osaka","Seul"]],
+    ["Qual é a capital da Itália?", ["Roma","Milão","Veneza","Florença"]],
+    ["Quantos jogadores de cada time ficam em quadra no vôlei?", ["6","5","7","11"]],
+    ["Que cidade sediou os Jogos Olímpicos de 2016?", ["Rio de Janeiro","Londres","Tóquio","Pequim"]],
+    ["Que piloto brasileiro, tricampeão de Fórmula 1, morreu em 1994?", ["Ayrton Senna","Nelson Piquet","Emerson Fittipaldi","Rubens Barrichello"]],
+    ["Qual é o país de origem da pizza?", ["Itália","Grécia","França","Estados Unidos"]],
+    ["Qual gás forma a camada que barra boa parte dos raios ultravioleta?", ["Ozônio","Nitrogênio","Hélio","Metano"]],
+    ["Qual bioma brasileiro é a maior planície alagável do mundo?", ["Pantanal","Cerrado","Caatinga","Pampa"]],
+    ["Qual bioma existe apenas no Brasil?", ["Caatinga","Cerrado","Amazônia","Pantanal"]],
+    ["Quanto tempo a Terra leva para dar uma volta completa em torno do Sol?", ["Cerca de 365 dias","24 horas","30 dias","Cerca de 180 dias"]],
+    ["A baleia pertence a qual grupo de animais?", ["Mamíferos","Peixes","Anfíbios","Répteis"]],
+    ["Quem escreveu “O Pequeno Príncipe”?", ["Antoine de Saint-Exupéry","Júlio Verne","Victor Hugo","Albert Camus"]],
+    ["Quem escreveu “Romeu e Julieta”?", ["William Shakespeare","Molière","Miguel de Cervantes","Dante Alighieri"]],
+    ["Qual país tem o formato de uma bota?", ["Itália","Grécia","Chile","Portugal"]],
+    ["Qual é a língua com mais falantes nativos no mundo?", ["Mandarim","Inglês","Espanhol","Hindi"]],
+    ["Quantos centímetros tem um metro?", ["100","10","1.000","50"]],
+    ["Quantos gramas tem um quilograma?", ["1.000","100","10","500"]],
+    ["O que a escala Richter mede?", ["Magnitude de terremotos","Velocidade do vento","Temperatura","Volume de chuva"]],
+    ["Qual é a capital do Chile?", ["Santiago","Valparaíso","Lima","Bogotá"]],
+    ["Qual instrumento de seis cordas é muito usado na MPB?", ["Violão","Cavaquinho","Violino","Bandolim"]],
+    ["Quem é chamado no Brasil de “Pai da Aviação”?", ["Santos Dumont","Bartolomeu de Gusmão","Augusto Severo","Gago Coutinho"]],
+    ["Qual destas é uma fonte de energia renovável?", ["Solar","Carvão mineral","Petróleo","Gás natural"]],
+    ["Quantos anos dura o mandato do presidente da República no Brasil?", ["4","5","6","8"]],
+    ["Qual organela da célula faz a respiração celular?", ["Mitocôndria","Ribossomo","Núcleo","Complexo de Golgi"]],
+    ["Qual é a capital de Minas Gerais?", ["Belo Horizonte","Ouro Preto","Juiz de Fora","Uberlândia"]],
+    ["Qual é a capital de Pernambuco?", ["Recife","Olinda","Caruaru","Natal"]],
+    ["Qual é o maior osso do corpo humano?", ["Fêmur","Tíbia","Úmero","Rádio"]],
+    ["Na coleta seletiva brasileira, qual cor de lixeira é para papel e papelão?", ["Azul","Vermelha","Verde","Amarela"]],
+    ["Na coleta seletiva brasileira, qual cor de lixeira é para metal?", ["Amarela","Azul","Verde","Marrom"]],
+    ["Qual seleção venceu a Copa do Mundo de 2022?", ["Argentina","França","Croácia","Marrocos"]],
+    ["Quantas casas tem um tabuleiro de xadrez?", ["64","81","100","49"]],
+  ],
+  3: [
+    ["Em que ano caiu o Muro de Berlim?", ["1989","1991","1985","1979"]],
+    ["Quem escreveu “Grande Sertão: Veredas”?", ["Guimarães Rosa","Euclides da Cunha","Clarice Lispector","Érico Veríssimo"]],
+    ["Qual é, aproximadamente, a velocidade da luz no vácuo?", ["300 mil km/s","30 mil km/s","3 milhões km/s","150 mil km/s"]],
+    ["Qual é a capital do Canadá?", ["Ottawa","Toronto","Montreal","Vancouver"]],
+    ["Quantos ossos tem o corpo humano adulto?", ["206","186","212","230"]],
+    ["Quem compôs “As Quatro Estações”?", ["Vivaldi","Bach","Mozart","Beethoven"]],
+    ["Em que ano foi assinada a Lei Áurea?", ["1888","1822","1889","1871"]],
+    ["Qual é o ponto mais alto do Brasil?", ["Pico da Neblina","Pico da Bandeira","Monte Roraima","Pedra da Mina"]],
+    ["Em qual planeta um dia dura mais que um ano?", ["Vênus","Mercúrio","Marte","Urano"]],
+    ["Qual é o maior deserto do mundo, contando os polares?", ["Antártida","Saara","Gobi","Atacama"]],
+    ["Quem descobriu a penicilina?", ["Alexander Fleming","Louis Pasteur","Oswaldo Cruz","Robert Koch"]],
+    ["Que tratado de 1494 dividiu as terras novas entre Portugal e Espanha?", ["Tordesilhas","Madri","Utrecht","Santo Ildefonso"]],
+    ["Quem pintou o teto da Capela Sistina?", ["Michelangelo","Rafael","Leonardo da Vinci","Botticelli"]],
+    ["Em que ano começou a Segunda Guerra Mundial?", ["1939","1914","1941","1945"]],
+    ["Em que ano terminou a Primeira Guerra Mundial?", ["1918","1914","1919","1921"]],
+    ["Qual planeta tinha mais luas confirmadas em 2025?", ["Saturno","Júpiter","Urano","Netuno"]],
+    ["Qual é a capital da Turquia?", ["Ancara","Istambul","Esmirna","Antália"]],
+    ["Qual é a capital da Nova Zelândia?", ["Wellington","Auckland","Christchurch","Queenstown"]],
+    ["Quem escreveu “Cem Anos de Solidão”?", ["Gabriel García Márquez","Jorge Luis Borges","Mario Vargas Llosa","Julio Cortázar"]],
+    ["Quem escreveu “Macunaíma”?", ["Mário de Andrade","Oswald de Andrade","Monteiro Lobato","Graça Aranha"]],
+    ["Qual é o gás nobre mais abundante na atmosfera da Terra?", ["Argônio","Hélio","Neônio","Criptônio"]],
+    ["Qual é a unidade de resistência elétrica?", ["Ohm","Volt","Ampere","Watt"]],
+    ["Quantos cromossomos tem uma célula humana comum, fora as reprodutivas?", ["46","23","44","48"]],
+    ["Qual foi a primeira capital do Brasil?", ["Salvador","Rio de Janeiro","São Vicente","Olinda"]],
+    ["Em que ano Brasília foi inaugurada?", ["1960","1956","1964","1950"]],
+    ["Qual presidente construiu Brasília?", ["Juscelino Kubitschek","Getúlio Vargas","Jânio Quadros","João Goulart"]],
+    ["Qual é o rio mais extenso que corre todo dentro do território brasileiro?", ["São Francisco","Amazonas","Paraná","Tocantins"]],
+    ["Qual metal é líquido à temperatura ambiente?", ["Mercúrio","Chumbo","Zinco","Estanho"]],
+    ["Qual filósofo foi professor de Alexandre, o Grande?", ["Aristóteles","Platão","Sócrates","Diógenes"]],
+    ["Quem escreveu “O Capital”?", ["Karl Marx","Adam Smith","Max Weber","John Maynard Keynes"]],
+    ["Qual é a moeda do Japão?", ["Iene","Yuan","Won","Rúpia"]],
+    ["Qual é o país mais populoso da África?", ["Nigéria","Etiópia","Egito","África do Sul"]],
+    ["Em que país fica Machu Picchu?", ["Peru","Bolívia","Equador","Chile"]],
+    ["Qual número vem a seguir na sequência 1, 1, 2, 3, 5, 8…?", ["13","11","12","16"]],
+    ["Qual é o valor de pi com duas casas decimais?", ["3,14","3,41","3,12","3,16"]],
+    ["Quem compôs as “Bachianas Brasileiras”?", ["Heitor Villa-Lobos","Carlos Gomes","Chiquinha Gonzaga","Pixinguinha"]],
+    ["Quem compôs a ópera “O Guarani”?", ["Carlos Gomes","Heitor Villa-Lobos","Alberto Nepomuceno","Francisco Mignone"]],
+    ["Qual é a camada mais externa da Terra?", ["Crosta","Manto","Núcleo externo","Astenosfera"]],
+    ["Quem foi o primeiro ser humano a pisar na Lua?", ["Neil Armstrong","Buzz Aldrin","Yuri Gagarin","Michael Collins"]],
+    ["Em que ano o ser humano pisou na Lua pela primeira vez?", ["1969","1965","1972","1961"]],
+    ["Que hormônio do pâncreas reduz a glicose no sangue?", ["Insulina","Adrenalina","Tiroxina","Cortisol"]],
+    ["Qual é a capital da Coreia do Sul?", ["Seul","Busan","Pyongyang","Incheon"]],
+    ["Qual é o maior país do mundo em área?", ["Rússia","Canadá","China","Estados Unidos"]],
+    ["Qual é o segundo maior país do mundo em área?", ["Canadá","China","Estados Unidos","Brasil"]],
+    ["Qual oceano banha a costa leste da África e o sul da Índia?", ["Índico","Pacífico","Atlântico","Ártico"]],
+    ["Quem é considerado o pai da genética?", ["Gregor Mendel","Charles Darwin","Louis Pasteur","James Watson"]],
+    ["Qual navegador português chegou à Índia por mar em 1498?", ["Vasco da Gama","Pedro Álvares Cabral","Bartolomeu Dias","Fernão de Magalhães"]],
+    ["Quem comandou a expedição que fez a primeira volta ao mundo?", ["Fernão de Magalhães","Vasco da Gama","Cristóvão Colombo","James Cook"]],
+    ["De qual movimento artístico Salvador Dalí foi um dos nomes principais?", ["Surrealismo","Cubismo","Impressionismo","Barroco"]],
+    ["Quem pintou o “Abaporu”?", ["Tarsila do Amaral","Anita Malfatti","Di Cavalcanti","Candido Portinari"]],
+    ["Quem pintou os painéis “Guerra e Paz”, na sede da ONU?", ["Candido Portinari","Di Cavalcanti","Tarsila do Amaral","Alfredo Volpi"]],
+    ["Em que ano foi criada a Política Nacional de Resíduos Sólidos (Lei 12.305)?", ["2010","2002","1998","2015"]],
+    ["Quanto é 2 elevado a 10?", ["1.024","1.000","512","2.048"]],
+    ["Qual é a montanha mais alta das Américas?", ["Aconcágua","Denali","Chimborazo","Pico da Neblina"]],
+    ["Que cidade sediou os primeiros Jogos Olímpicos da era moderna, em 1896?", ["Atenas","Paris","Londres","Roma"]],
+    ["Qual é o símbolo químico do sódio?", ["Na","So","Sd","S"]],
+    ["Em que ano foi promulgada a atual Constituição brasileira?", ["1988","1985","1967","1990"]],
+    ["Qual é, aproximadamente, a velocidade do som no ar?", ["340 m/s","34 m/s","3.400 m/s","1.240 m/s"]],
+    ["A que temperatura a água ferve ao nível do mar, em graus Fahrenheit?", ["212 °F","100 °F","180 °F","32 °F"]],
+    ["Quem escreveu “Os Sertões”?", ["Euclides da Cunha","Graciliano Ramos","Lima Barreto","Raul Pompeia"]],
+    ["Qual compositor já estava surdo quando compôs a Nona Sinfonia?", ["Beethoven","Mozart","Brahms","Schubert"]],
+    ["Qual é o elemento químico mais abundante no universo?", ["Hidrogênio","Hélio","Oxigênio","Carbono"]],
+  ],
+  4: [
+    ["Quem demonstrou o Último Teorema de Fermat, em 1994?", ["Andrew Wiles","Grigori Perelman","Carl Friedrich Gauss","Leonhard Euler"]],
+    ["Em que ano aconteceu a Semana de Arte Moderna, em São Paulo?", ["1922","1917","1930","1928"]],
+    ["Qual é o elemento químico mais abundante na crosta terrestre?", ["Oxigênio","Silício","Ferro","Alumínio"]],
+    ["Qual é a unidade de indutância no Sistema Internacional?", ["Henry","Weber","Tesla","Farad"]],
+    ["Em que ano o primeiro astronauta brasileiro foi ao espaço?", ["2006","1998","2001","2012"]],
+    ["Quantos elementos químicos a tabela periódica reconhece oficialmente?", ["118","112","120","108"]],
+    ["Qual país foi o primeiro a dar às mulheres o direito de votar em eleições nacionais, em 1893?", ["Nova Zelândia","Finlândia","Austrália","Noruega"]],
+    ["Quantos corações tem um polvo?", ["3","1","2","4"]],
+    ["Qual é a capital do Cazaquistão?", ["Astana","Almaty","Tashkent","Bishkek"]],
+    ["Qual é a capital do Butão?", ["Thimphu","Katmandu","Daca","Paro"]],
+    ["Em que ano foi fundada a cidade de São Paulo?", ["1554","1565","1532","1600"]],
+    ["Em que ano foi fundada a cidade do Rio de Janeiro?", ["1565","1554","1502","1567"]],
+    ["Qual partícula transmite a força eletromagnética?", ["Fóton","Glúon","Bóson W","Gráviton"]],
+    ["Qual é o valor aproximado da constante de Avogadro?", ["6,02 × 10²³","3,00 × 10⁸","9,81","1,60 × 10⁻¹⁹"]],
+    ["Em que cidade foram julgados os líderes nazistas depois da Segunda Guerra?", ["Nuremberg","Haia","Versalhes","Genebra"]],
+    ["Quem pintou “Moça com Brinco de Pérola”?", ["Johannes Vermeer","Rembrandt","Frans Hals","Jan van Eyck"]],
+    ["Qual foi o primeiro satélite artificial, lançado em 1957?", ["Sputnik 1","Explorer 1","Vostok 1","Telstar"]],
+    ["Qual é o rio mais longo da Europa?", ["Volga","Danúbio","Reno","Dniepre"]],
+    ["Qual é a profundidade aproximada da Fossa das Marianas?", ["Cerca de 11 km","Cerca de 5 km","Cerca de 20 km","Cerca de 2 km"]],
+    ["Quem foi o primeiro imperador de Roma?", ["Augusto","Júlio César","Nero","Calígula"]],
+    ["Quantas teclas tem um piano padrão?", ["88","76","96","84"]],
+    ["Que cientista brasileiro descreveu a doença de Chagas, em 1909?", ["Carlos Chagas","Oswaldo Cruz","Adolfo Lutz","Vital Brazil"]],
+    ["Qual é a unidade de carga elétrica no Sistema Internacional?", ["Coulomb","Ampere","Volt","Joule"]],
+    ["Qual dinastia governava a China quando Marco Polo esteve lá?", ["Yuan","Ming","Qing","Han"]],
+  ],
+};
+
+const STUDENTS = [["Ana","Medicina"],["Bruno","Engenharia"],["Carla","Direito"]];
+const ACC = {1: .9, 2: .75, 3: .6, 4: .45};
+const CROWD = {1: .72, 2: .55, 3: .42, 4: .32};
+const LETTERS = ["A","B","C","D"];
+
+const $ = (id) => document.getElementById(id);
+const money = (v) => v.toLocaleString("pt-BR", {style: "currency", currency: "BRL", maximumFractionDigits: 0});
+const levelOf = (i) => i < 5 ? 1 : i < 10 ? 2 : i < 15 ? 3 : 4;
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+let S;
+let record = 0;
+try { record = Number(localStorage.getItem("sdm-record")) || 0; } catch (e) {}
+
+function newGame() {
+  S = { idx: 0, used: {1: [], 2: [], 3: [], 4: []}, skips: 3, aids: {cartas: false, placas: false, univ: false},
+        q: null, gone: [], sel: null, phase: "ask", help: null, end: null };
+  draw();
+  render();
+}
+
+// Perguntas já vistas ficam guardadas entre partidas, para não repetir até esgotar o nível
+let seen = [];
+try { seen = JSON.parse(localStorage.getItem("sdm-seen")) || []; } catch (e) {}
+const saveSeen = () => { try { localStorage.setItem("sdm-seen", JSON.stringify(seen)); } catch (e) {} };
+
+function draw() {
+  const lv = levelOf(S.idx);
+  const fresh = (q) => !S.used[lv].includes(q[0]);
+  let pool = BANK[lv].filter((q) => fresh(q) && !seen.includes(q[0]));
+  if (!pool.length) {
+    const texts = BANK[lv].map((q) => q[0]);
+    seen = seen.filter((t) => !texts.includes(t));
+    pool = BANK[lv].filter(fresh);
+  }
+  if (!pool.length) { S.used[lv] = []; pool = BANK[lv]; }
+  const [text, opts] = pick(pool);
+  S.used[lv].push(text);
+  seen.push(text);
+  saveSeen();
+  const order = shuffle([0, 1, 2, 3]);
+  S.q = { text, opts: order.map((o) => opts[o]), ans: order.indexOf(0) };
+  S.gone = []; S.sel = null; S.phase = "ask"; S.help = null;
+}
+
+const stakes = () => {
+  const have = S.idx ? PRIZES[S.idx - 1] : 0;
+  return { win: PRIZES[S.idx], stop: have, lose: S.idx === 15 ? 0 : Math.floor(have / 2) };
+};
+
+function finish(amount, kind) {
+  S.phase = "end";
+  S.end = { amount, kind };
+  if (amount > record) { record = amount; try { localStorage.setItem("sdm-record", String(record)); } catch (e) {} }
+  render();
+}
+
+function choose(i) { if (S.phase !== "ask" && S.phase !== "confirm") return; S.sel = i; S.phase = "confirm"; render(); }
+
+function confirmAnswer() {
+  S.phase = "wait"; render();
+  setTimeout(() => {
+    const right = S.sel === S.q.ans;
+    S.phase = right ? "right" : "wrong";
+    render();
+  }, 1400);
+}
+
+function next() {
+  if (S.phase === "right") {
+    if (S.idx === 15) return finish(1000000, "milhao");
+    S.idx++; draw(); render();
+  } else if (S.phase === "wrong") {
+    finish(stakes().lose, "errou");
+  }
+}
+
+function skip() { if (S.skips && S.phase === "ask") { S.skips--; draw(); render(); } }
+
+function useCartas() {
+  if (S.aids.cartas || S.phase !== "ask") return;
+  S.aids.cartas = true;
+  S.help = { type: "cartas", deck: shuffle(["K","A","2","3"]), open: null };
+  render();
+}
+function flipCard(i) {
+  const h = S.help; if (!h || h.open !== null) return;
+  h.open = i;
+  const n = {K: 0, A: 1, "2": 2, "3": 3}[h.deck[i]];
+  S.gone = shuffle([0,1,2,3].filter((x) => x !== S.q.ans)).slice(0, n);
+  h.n = n;
+  render();
+}
+
+function usePlacas() {
+  if (S.aids.placas || S.phase !== "ask") return;
+  S.aids.placas = true;
+  const lv = levelOf(S.idx);
+  const alive = [0,1,2,3].filter((x) => !S.gone.includes(x));
+  const w = alive.map((x) => x === S.q.ans ? CROWD[lv] * 100 + Math.random() * 15 : Math.random() * 30 + 5);
+  const tot = w.reduce((a, b) => a + b, 0);
+  const pct = [0,0,0,0];
+  alive.forEach((x, k) => pct[x] = Math.round(w[k] / tot * 100));
+  const diff = 100 - pct.reduce((a, b) => a + b, 0); pct[alive[0]] += diff;
+  S.help = { type: "placas", pct };
+  render();
+}
+
+function useUniv() {
+  if (S.aids.univ || S.phase !== "ask") return;
+  S.aids.univ = true;
+  const lv = levelOf(S.idx);
+  const wrongs = [0,1,2,3].filter((x) => x !== S.q.ans && !S.gone.includes(x));
+  const said = STUDENTS.map(([name, course]) => {
+    const ok = Math.random() < ACC[lv] || !wrongs.length;
+    const sure = ok ? Math.random() < .6 : Math.random() < .3;
+    return { name, course, guess: ok ? S.q.ans : pick(wrongs), sure };
+  });
+  S.help = { type: "univ", said };
+  render();
+}
+
+function renderLadder() {
+  $("ladder").innerHTML = PRIZES.map((p, i) => {
+    const cls = [i < S.idx || (S.phase === "end" && S.end.kind === "milhao") ? "done" : "", i === S.idx && S.phase !== "end" ? "cur" : "", i === 5 || i === 10 || i === 15 ? "mark" : "", i === 15 ? "top" : ""].join(" ");
+    return `<li class="${cls}"><span class="n">${i + 1}</span><span>${money(p)}</span></li>`;
+  }).join("");
+  const cur = $("ladder").querySelector(".cur");
+  if (cur && window.matchMedia("(max-width: 760px)").matches) cur.scrollIntoView({ block: "nearest", inline: "center" });
+  $("record").textContent = money(record);
+}
+
+function renderHelp() {
+  const h = S.help; if (!h) return "";
+  if (h.type === "cartas") {
+    const cards = h.deck.map((c, i) => `<button class="card ${h.open === i ? "face" : ""}" data-card="${i}" ${h.open !== null ? "disabled" : ""} aria-label="Carta ${i + 1}">${h.open === i ? c : ""}</button>`).join("");
+    const msg = h.open === null ? "<p>Escolha uma carta. Rei não tira nenhuma, Ás tira uma, 2 tira duas e 3 tira três alternativas erradas.</p>"
+      : `<p>${h.n === 0 ? "Que azar! Saiu o Rei, nenhuma alternativa foi eliminada." : `Saiu o ${h.deck[h.open] === "A" ? "Ás" : h.deck[h.open]}: ${h.n} alternativa${h.n > 1 ? "s" : ""} errada${h.n > 1 ? "s" : ""} eliminada${h.n > 1 ? "s" : ""}.`}</p>`;
+    return `<div class="result"><h3>Cartas</h3><div class="cards">${cards}</div>${msg}</div>`;
+  }
+  if (h.type === "placas") {
+    return `<div class="result"><h3>A plateia votou</h3><div class="votes">${h.pct.map((p, i) => `<div class="vote"><b>${LETTERS[i]}</b><div class="track"><div class="fill" style="width:${p}%"></div></div><span>${p}%</span></div>`).join("")}</div></div>`;
+  }
+  if (h.type === "univ") {
+    return `<div class="result"><h3>Os universitários</h3>${h.said.map((s) => `<p><b>${s.name}</b> (${s.course}): ${s.sure ? "Tenho certeza, é a" : "Acho que é a"} <b>${LETTERS[s.guess]}</b>.</p>`).join("")}</div>`;
+  }
+  return "";
+}
+
+function render() {
+  renderLadder();
+  const m = $("main");
+  if (S.phase === "end") {
+    const e = S.end;
+    const title = e.kind === "milhao" ? "Você é milionário!" : e.kind === "parou" ? "Você parou" : "Que pena, você errou";
+    const text = e.kind === "milhao" ? "Acertou as 16 perguntas e levou o prêmio máximo."
+      : e.kind === "parou" ? `Parou na pergunta ${S.idx + 1} e levou o que tinha acumulado.`
+      : `A resposta certa era a ${LETTERS[S.q.ans]}: ${S.q.opts[S.q.ans]}. Você leva metade do que tinha acumulado.`;
+    m.innerHTML = `<section class="qbox end"><div class="qmeta" style="justify-content:center">${title}</div><div class="big">${money(e.amount)}</div><p>${text}</p><button class="btn primary" id="again">Jogar de novo</button></section>`;
+    $("again").onclick = newGame;
+    return;
+  }
+
+  const st = stakes();
+  const lv = levelOf(S.idx);
+  const reveal = S.phase === "right" || S.phase === "wrong";
+  const opts = S.q.opts.map((o, i) => {
+    let c = "";
+    if (S.gone.includes(i)) c = "gone";
+    if (S.sel === i) c = "sel";
+    if (reveal && i === S.q.ans) c = "ok";
+    else if (reveal && i === S.sel) c = "bad";
+    const dis = S.gone.includes(i) || !(S.phase === "ask" || S.phase === "confirm");
+    return `<button class="opt ${c}" data-opt="${i}" ${dis ? "disabled" : ""}><span class="l">${LETTERS[i]}</span><span>${o}</span></button>`;
+  }).join("");
+
+  let bar;
+  if (S.phase === "ask") bar = `<p>Escolha uma alternativa.</p><div class="btns"><button class="btn ghost" id="stop" ${S.idx === 0 ? "disabled" : ""}>Parar e levar ${money(st.stop)}</button></div>`;
+  else if (S.phase === "confirm") bar = `<p>Está certo disso? Posso perguntar?</p><div class="btns"><button class="btn ghost" id="back">Não, quero trocar</button><button class="btn primary" id="yes">Sim, estou certo</button></div>`;
+  else if (S.phase === "wait") bar = `<p>Vamos ver se você acertou…</p>`;
+  else if (S.phase === "right") bar = `<p>Certa resposta! Você ganhou ${money(st.win)}.</p><div class="btns"><button class="btn primary" id="next">${S.idx === 15 ? "Receber o milhão" : "Próxima pergunta"}</button></div>`;
+  else bar = `<p>Que pena, resposta errada.</p><div class="btns"><button class="btn primary" id="next">Ver resultado</button></div>`;
+
+  const canAid = S.phase === "ask";
+  m.innerHTML = `
+    <div class="stakes">
+      <div class="stake lose"><small>Errar</small><strong>${money(st.lose)}</strong></div>
+      <div class="stake"><small>Parar</small><strong>${money(st.stop)}</strong></div>
+      <div class="stake win"><small>Acertar</small><strong>${money(st.win)}</strong></div>
+    </div>
+    <section class="qbox">
+      <div class="qmeta"><span>Pergunta ${S.idx + 1} de 16</span><span>${LEVEL_NAME[lv]}</span></div>
+      <p class="qtext">${S.q.text}</p>
+    </section>
+    <div class="opts">${opts}</div>
+    <div class="bar">${bar}</div>
+    ${renderHelp()}
+    <div class="help">
+      <button class="aid" id="a-skip" ${!S.skips || !canAid ? "disabled" : ""}><b>Pular</b><small>${S.skips} restante${S.skips === 1 ? "" : "s"}</small></button>
+      <button class="aid" id="a-cartas" ${S.aids.cartas || !canAid ? "disabled" : ""}><b>Cartas</b><small>elimina de 0 a 3</small></button>
+      <button class="aid" id="a-placas" ${S.aids.placas || !canAid ? "disabled" : ""}><b>Placas</b><small>voto da plateia</small></button>
+      <button class="aid" id="a-univ" ${S.aids.univ || !canAid ? "disabled" : ""}><b>Universitários</b><small>três palpites</small></button>
+    </div>`;
+
+  m.querySelectorAll("[data-opt]").forEach((b) => b.onclick = () => choose(+b.dataset.opt));
+  m.querySelectorAll("[data-card]").forEach((b) => b.onclick = () => flipCard(+b.dataset.card));
+  const on = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+  on("stop", () => finish(st.stop, "parou"));
+  on("back", () => { S.sel = null; S.phase = "ask"; render(); });
+  on("yes", confirmAnswer);
+  on("next", next);
+  on("a-skip", skip);
+  on("a-cartas", useCartas);
+  on("a-placas", usePlacas);
+  on("a-univ", useUniv);
+}
+
+window.claude?.hot?.snapshot?.(() => S);
+const start = (data) => {
+  if (data && data.q) { S = data; if (S.phase === "wait") S.phase = "confirm"; render(); }
+  else newGame();
+};
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>
